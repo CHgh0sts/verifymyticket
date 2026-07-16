@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketCategory {
+  CONCERT
+  FESTIVAL
+  SPORT
+  THEATER
+  CINEMA
+  TRAIN
+  FLIGHT
+  OLYMPICS
+  OTHER
+}
+
+enum BarcodeType {
+  QR
+  DATAMATRIX
+  BARCODE
+}
+
+model User {
+  id                   String         @id @default(cuid())
+  username             String         @unique
+  email                String         @unique
+  password             String
+  emailVerified        DateTime?
+  emailVerifyToken     String?        @unique
+  emailVerifyExpires   DateTime?
+  resetPasswordToken   String?        @unique
+  resetPasswordExpires DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  tickets              Ticket[]
+  loginAttempts        LoginAttempt[]
+  auditLogs            AuditLog[]
+}
+
+model Ticket {
+  id                String         @id @default(cuid())
+  category          TicketCategory @default(CONCERT)
+  eventName         String
+  venue             String?
+  city              String?
+  eventDate         DateTime?
+  organizer         String?
+  platform          String
+  orderNumber       String?
+  seat              String?
+  row               String?
+  block             String?
+  ticketCategory    String?
+  purchaserName     String?
+  purchasePrice     Decimal?
+  purchaseDate      DateTime?
+  barcodeHash       String
+  barcodeSuffixHash String
+  barcodeLastDigits String
+  barcodeType       BarcodeType
+  externalEventId   String?
+  detectedDuplicate Boolean        @default(false)
+  duplicateCount    Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  ownerId           String
+  owner             User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([barcodeHash, ownerId])
+  @@index([barcodeHash])
+  @@index([barcodeSuffixHash])
+  @@index([externalEventId])
+  @@index([eventName, venue, eventDate])
+  @@index([ownerId])
+  @@index([createdAt])
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String?
+  success   Boolean
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  meta      Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+}
+
+model CheckLog {
+  id          String   @id @default(cuid())
+  barcodeHash String
+  found       Boolean
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([createdAt])
+}
+
+/// Codes vérifiés publiquement, liés à un événement précis (hash uniquement).
+model CodeSighting {
+  id                String    @id @default(cuid())
+  mode              String
+  barcodeHash       String?
+  barcodeSuffixHash String
+  externalEventId   String?
+  eventName         String
+  venue             String?
+  city              String?
+  eventDate         DateTime?
+  checkCount        Int       @default(1)
+  ip                String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([barcodeHash])
+  @@index([barcodeSuffixHash])
+  @@index([externalEventId])
+  @@index([eventName, venue, eventDate])
+  @@index([createdAt])
+}
