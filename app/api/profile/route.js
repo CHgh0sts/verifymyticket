@@ -15,6 +15,9 @@ export async function GET() {
       username: true,
       email: true,
       emailVerified: true,
+      pendingEmail: true,
+      emailChangeExpires: true,
+      passwordChangeExpires: true,
       createdAt: true,
       _count: { select: { tickets: true } },
     },
@@ -27,6 +30,15 @@ export async function GET() {
     username: user.username,
     email: user.email,
     emailVerified: user.emailVerified,
+    pendingEmail: user.pendingEmail,
+    emailChangePending: Boolean(
+      user.pendingEmail &&
+        user.emailChangeExpires &&
+        user.emailChangeExpires > new Date()
+    ),
+    passwordChangePending: Boolean(
+      user.passwordChangeExpires && user.passwordChangeExpires > new Date()
+    ),
     createdAt: user.createdAt,
     ticketCount: user._count.tickets,
   });

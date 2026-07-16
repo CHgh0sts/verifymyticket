@@ -50,7 +50,15 @@ function isDashboardPath(pathname) {
   return pathname.startsWith("/dashboard");
 }
 
+function isPublicProfileConfirm(pathname) {
+  return (
+    pathname === "/api/profile/confirm-email" ||
+    pathname === "/api/profile/confirm-password"
+  );
+}
+
 function isProtectedApi(pathname) {
+  if (isPublicProfileConfirm(pathname)) return false;
   return pathname.startsWith("/api/tickets") || pathname.startsWith("/api/profile");
 }
 

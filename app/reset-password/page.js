@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Alert } from "@/components/ui";
 
 const schema = z.object({
@@ -64,10 +65,8 @@ function ResetForm() {
         <label className="label" htmlFor="password">
           Nouveau mot de passe
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
-          className="input"
           autoComplete="new-password"
           {...register("password")}
         />

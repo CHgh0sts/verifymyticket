@@ -26,20 +26,26 @@ enum BarcodeType {
 }
 
 model User {
-  id                   String         @id @default(cuid())
-  username             String         @unique
-  email                String         @unique
-  password             String
-  emailVerified        DateTime?
-  emailVerifyToken     String?        @unique
-  emailVerifyExpires   DateTime?
-  resetPasswordToken   String?        @unique
-  resetPasswordExpires DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  tickets              Ticket[]
-  loginAttempts        LoginAttempt[]
-  auditLogs            AuditLog[]
+  id                     String         @id @default(cuid())
+  username               String         @unique
+  email                  String         @unique
+  password               String
+  emailVerified          DateTime?
+  emailVerifyToken       String?        @unique
+  emailVerifyExpires     DateTime?
+  resetPasswordToken     String?        @unique
+  resetPasswordExpires   DateTime?
+  pendingEmail           String?
+  emailChangeToken       String?        @unique
+  emailChangeExpires     DateTime?
+  pendingPasswordHash    String?
+  passwordChangeToken    String?        @unique
+  passwordChangeExpires  DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  tickets                Ticket[]
+  loginAttempts          LoginAttempt[]
+  auditLogs              AuditLog[]
 }
 
 model Ticket {
