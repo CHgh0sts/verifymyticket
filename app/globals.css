@@ -132,6 +132,65 @@ body {
   }
 }
 
+/* ——— Site topbar (fixed + shrink on scroll) ——— */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 9, 13, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.site-header--scrolled {
+  background: rgba(7, 9, 13, 0.94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.site-header__inner {
+  margin: 0 auto;
+  display: flex;
+  max-width: 72rem;
+  align-items: center;
+  justify-content: space-between;
+  height: 3.5rem; /* 56px */
+  padding: 0 1rem;
+  transition: height 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 640px) {
+  .site-header__inner {
+    padding: 0 1.5rem;
+  }
+}
+
+.site-header--scrolled .site-header__inner {
+  height: 2.75rem; /* 44px */
+}
+
+.site-header__brand {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  transition: font-size 0.25s ease;
+}
+
+.site-header--scrolled .site-header__brand {
+  font-size: 1rem;
+}
+
+.site-header-spacer {
+  height: 3.5rem;
+  flex-shrink: 0;
+}
+
 /* ——— Mobile burger + drawer droite ——— */
 .burger-btn {
   display: none;
@@ -183,9 +242,9 @@ body {
 }
 
 .mobile-nav-overlay {
-  position: fixed;
+  position: fixed !important;
   inset: 0;
-  z-index: 60;
+  z-index: 200;
   background: rgba(0, 0, 0, 0.55);
   opacity: 0;
   pointer-events: none;
@@ -198,17 +257,23 @@ body {
 }
 
 .mobile-nav-drawer {
-  position: fixed;
+  position: fixed !important;
   top: 0;
   right: 0;
-  z-index: 70;
+  bottom: 0;
+  left: auto;
+  z-index: 210;
   height: 100dvh;
+  max-height: 100dvh;
   width: min(86vw, 320px);
   background: var(--bg-card);
   border-left: 1px solid var(--border);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
   transform: translateX(105%);
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-nav-drawer--open {
