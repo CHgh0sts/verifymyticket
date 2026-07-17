@@ -1,6 +1,7 @@
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import CookieBanner from "@/components/CookieBanner";
+import { LocaleProvider } from "@/components/LocaleProvider";
 
 const outfit = Outfit({
   variable: "--font-display",
@@ -33,8 +34,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="fr" className={`${outfit.variable} ${jetbrains.variable} h-full`}>
       <body className="min-h-full antialiased bg-atmosphere">
-        {children}
-        <CookieBanner />
+        <LocaleProvider>
+          {children}
+          <CookieBanner />
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/components/LocaleProvider";
 
-/**
- * Camera barcode/QR scanner using @zxing/browser.
- * Raw value stays in the browser until submitted via the form.
- */
 export default function BarcodeScanner({ onScan, onError }) {
+  const { t } = useLocale();
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const [active, setActive] = useState(false);
@@ -38,17 +36,14 @@ export default function BarcodeScanner({ onScan, onError }) {
             controlsRef.current = null;
             setActive(false);
           }
-          if (err && err.name !== "NotFoundException") {
-            // ignore continuous NotFound while scanning
-          }
         }
       );
       controlsRef.current = controls;
     } catch (err) {
       const msg =
         err?.name === "NotAllowedError"
-          ? "Accès caméra refusé"
-          : "Impossible de démarrer le scanner";
+          ? t("scanner.denied")
+          : t("common.error");
       setError(msg);
       setActive(false);
       onError?.(msg);
@@ -68,11 +63,11 @@ export default function BarcodeScanner({ onScan, onError }) {
       <div className="flex gap-2">
         {!active ? (
           <button type="button" className="btn btn-secondary text-sm" onClick={start}>
-            Scanner avec la caméra
+            {t("scanner.start")}
           </button>
         ) : (
           <button type="button" className="btn btn-secondary text-sm" onClick={stop}>
-            Arrêter le scan
+            {t("scanner.stop")}
           </button>
         )}
       </div>

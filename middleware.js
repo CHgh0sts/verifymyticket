@@ -53,13 +53,23 @@ function isDashboardPath(pathname) {
 function isPublicProfileConfirm(pathname) {
   return (
     pathname === "/api/profile/confirm-email" ||
-    pathname === "/api/profile/confirm-password"
+    pathname === "/api/profile/confirm-password" ||
+    pathname === "/api/profile/delete-account"
   );
 }
 
 function isProtectedApi(pathname) {
   if (isPublicProfileConfirm(pathname)) return false;
-  return pathname.startsWith("/api/tickets") || pathname.startsWith("/api/profile");
+  if (pathname.startsWith("/api/organizer/v1")) return false;
+  return (
+    pathname.startsWith("/api/tickets") ||
+    pathname.startsWith("/api/profile") ||
+    pathname.startsWith("/api/alerts") ||
+    pathname.startsWith("/api/events/mine") ||
+    pathname === "/api/organizer" ||
+    pathname.startsWith("/api/push/subscribe") ||
+    pathname.startsWith("/api/auth/2fa")
+  );
 }
 
 export async function middleware(request) {
@@ -96,6 +106,13 @@ export const config = {
     "/dashboard/:path*",
     "/api/tickets/:path*",
     "/api/profile/:path*",
+    "/api/alerts/:path*",
+    "/api/alerts",
+    "/api/events/mine",
+    "/api/organizer/:path*",
+    "/api/push/:path*",
+    "/api/proofs",
+    "/api/proofs/:path*",
     "/api/auth/:path*",
     "/api/check",
     "/api/check/:path*",

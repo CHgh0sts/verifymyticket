@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale } from "@/components/LocaleProvider";
 
 const STORAGE_KEY = "vmt_cookie_consent";
 
 export default function CookieBanner() {
+  const { t } = useLocale();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -32,32 +34,29 @@ export default function CookieBanner() {
   if (!visible) return null;
 
   return (
-    <div
-      className="cookie-banner"
-      role="dialog"
-      aria-label="Information sur les cookies"
-    >
+    <div className="cookie-banner" role="dialog" aria-label={t("footer.cookies")}>
       <div className="cookie-banner__inner">
         <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-          Ce site utilise des cookies{" "}
-          <strong className="text-[var(--text)]">strictement nécessaires</strong>{" "}
-          (session, sécurité). Aucun cookie publicitaire n&apos;est déposé
-          actuellement. En savoir plus :{" "}
+          {t("cookies.text")}{" "}
           <Link href="/cookies" className="text-[var(--accent)] hover:underline">
-            politique cookies
+            {t("footer.cookies")}
           </Link>
           {" · "}
           <Link href="/confidentialite" className="text-[var(--accent)] hover:underline">
-            confidentialité
+            {t("footer.privacy")}
           </Link>
           .
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" className="btn btn-primary !py-1.5 !px-3 text-sm" onClick={() => save("accepted")}>
-            J&apos;ai compris
+          <button
+            type="button"
+            className="btn btn-primary !py-1.5 !px-3 text-sm"
+            onClick={() => save("accepted")}
+          >
+            {t("cookies.accept")}
           </button>
           <Link href="/cookies" className="btn btn-secondary !py-1.5 !px-3 text-sm">
-            Détails
+            {t("cookies.details")}
           </Link>
         </div>
       </div>

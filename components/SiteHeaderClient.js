@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { LocaleSwitcher, useLocale } from "@/components/LocaleProvider";
 
 function useAuthUser() {
   const [user, setUser] = useState(undefined);
@@ -28,6 +29,7 @@ function useAuthUser() {
 
 export default function SiteHeaderClient({ showAuth = true }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [user, setUser] = useAuthUser();
   const [open, setOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
@@ -113,7 +115,12 @@ export default function SiteHeaderClient({ showAuth = true }) {
             <span className="font-semibold tracking-tight">
               Verify<span className="text-[var(--accent)]">My</span>Ticket
             </span>
-            <button type="button" className="burger-btn" aria-label="Fermer" onClick={close}>
+            <button
+              type="button"
+              className="burger-btn"
+              aria-label={t("nav.closeMenu")}
+              onClick={close}
+            >
               <span className="burger-line burger-line--a" />
               <span className="burger-line burger-line--b" />
               <span className="burger-line burger-line--c" />
@@ -121,41 +128,55 @@ export default function SiteHeaderClient({ showAuth = true }) {
           </div>
 
           <nav className="flex flex-col gap-1 overflow-y-auto p-4">
+            <div className="mb-3 px-3">
+              <LocaleSwitcher />
+            </div>
             {user && (
               <p className="mb-2 px-3 text-sm text-[var(--text-muted)]">
-                Connecté · <span className="text-[var(--text)]">{user.username}</span>
+                {t("nav.connected")} ·{" "}
+                <span className="text-[var(--text)]">{user.username}</span>
               </p>
             )}
             <Link href="/check" className="mobile-nav-link" onClick={close}>
-              Vérifier un billet
+              {t("nav.checkTicket")}
+            </Link>
+            <Link href="/faq" className="mobile-nav-link" onClick={close}>
+              {t("nav.faq")}
+            </Link>
+            <Link href="/comment-ca-marche" className="mobile-nav-link" onClick={close}>
+              {t("nav.how")}
             </Link>
             {showAuth && user && (
               <>
                 <Link href="/dashboard" className="mobile-nav-link" onClick={close}>
-                  Dashboard
+                  {t("nav.dashboard")}
                 </Link>
                 <Link href="/dashboard/tickets" className="mobile-nav-link" onClick={close}>
-                  Mes billets
+                  {t("nav.tickets")}
                 </Link>
                 <Link href="/dashboard/profile" className="mobile-nav-link" onClick={close}>
-                  Profil
+                  {t("nav.profile")}
                 </Link>
                 <button
                   type="button"
                   className="mobile-nav-link mobile-nav-link--danger text-left"
                   onClick={logout}
                 >
-                  Déconnexion
+                  {t("nav.logout")}
                 </button>
               </>
             )}
             {showAuth && user === null && (
               <>
                 <Link href="/login" className="mobile-nav-link" onClick={close}>
-                  Connexion
+                  {t("nav.login")}
                 </Link>
-                <Link href="/register" className="mobile-nav-link mobile-nav-link--accent" onClick={close}>
-                  Inscription
+                <Link
+                  href="/register"
+                  className="mobile-nav-link mobile-nav-link--accent"
+                  onClick={close}
+                >
+                  {t("nav.register")}
                 </Link>
               </>
             )}
@@ -165,20 +186,20 @@ export default function SiteHeaderClient({ showAuth = true }) {
               className="mobile-nav-link text-[var(--text-muted)]"
               onClick={close}
             >
-              Mentions légales
+              {t("footer.mentions")}
             </Link>
             <Link href="/cgu" className="mobile-nav-link text-[var(--text-muted)]" onClick={close}>
-              CGU
+              {t("footer.terms")}
             </Link>
             <Link
               href="/confidentialite"
               className="mobile-nav-link text-[var(--text-muted)]"
               onClick={close}
             >
-              Confidentialité
+              {t("footer.privacy")}
             </Link>
             <Link href="/cookies" className="mobile-nav-link text-[var(--text-muted)]" onClick={close}>
-              Cookies
+              {t("footer.cookies")}
             </Link>
           </nav>
         </aside>
@@ -188,20 +209,25 @@ export default function SiteHeaderClient({ showAuth = true }) {
 
   return (
     <>
-      <header
-        className={`site-header ${scrolled ? "site-header--scrolled" : ""}`}
-      >
+      <header className={`site-header ${scrolled ? "site-header--scrolled" : ""}`}>
         <div className="site-header__inner">
           <Link href="/" className="site-header__brand">
             Verify<span className="text-[var(--accent)]">My</span>Ticket
           </Link>
 
           <nav className="hidden items-center gap-3 md:flex">
+            <LocaleSwitcher />
+            <Link
+              href="/faq"
+              className="text-sm text-[var(--text-muted)] transition hover:text-[var(--text)]"
+            >
+              {t("nav.faq")}
+            </Link>
             <Link
               href="/check"
               className="text-sm text-[var(--text-muted)] transition hover:text-[var(--text)]"
             >
-              Vérifier
+              {t("nav.check")}
             </Link>
             {showAuth && user === undefined && (
               <span className="h-8 w-24 animate-pulse rounded-lg bg-[var(--bg-elevated)]" />
@@ -210,24 +236,24 @@ export default function SiteHeaderClient({ showAuth = true }) {
               <>
                 <span className="text-sm text-[var(--text-muted)]">{user.username}</span>
                 <Link href="/dashboard" className="btn btn-primary !py-1.5 !px-3 text-sm">
-                  Dashboard
+                  {t("nav.dashboard")}
                 </Link>
                 <button
                   type="button"
                   onClick={logout}
                   className="btn btn-secondary !py-1.5 !px-3 text-sm"
                 >
-                  Déconnexion
+                  {t("nav.logout")}
                 </button>
               </>
             )}
             {showAuth && user === null && (
               <>
                 <Link href="/login" className="btn btn-secondary !py-1.5 !px-3 text-sm">
-                  Connexion
+                  {t("nav.login")}
                 </Link>
                 <Link href="/register" className="btn btn-primary !py-1.5 !px-3 text-sm">
-                  Inscription
+                  {t("nav.register")}
                 </Link>
               </>
             )}
@@ -236,7 +262,7 @@ export default function SiteHeaderClient({ showAuth = true }) {
           <button
             type="button"
             className="burger-btn"
-            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
           >

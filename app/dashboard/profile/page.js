@@ -298,6 +298,247 @@ export default function ProfilePage() {
           {passwordLoading ? "Envoi…" : "Demander le changement"}
         </button>
       </form>
+
+      <RgpdSection />
+      <SecuritySection />
+      <PushSection />
     </div>
   );
+}
+
+function RgpdSection() {
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function exportData() {
+    const res = await fetch("/api/profile/export");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setMsg(data.error || "Export impossible");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "verifymyticket-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsg("Export téléchargé");
+  }
+
+  async function requestDelete() {
+    if (
+      !confirm(
+        "Demander la suppression du compte ? Un email de confirmation sera envoyé."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/profile/export", { method: "POST" });
+      const data = await res.json();
+      setMsg(data.message || data.error || "Demande envoyée");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="text-lg font-medium">Données & RGPD</h2>
+      <p className="text-sm text-[var(--text-muted)]">
+        Exportez vos données ou demandez la suppression définitive du compte.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-secondary" onClick={exportData}>
+          Exporter (JSON)
+        </button>
+        <button
+          type="button"
+          className="btn btn-danger"
+          disabled={busy}
+          onClick={requestDelete}
+        >
+          Supprimer mon compte
+        </button>
+      </div>
+      {msg && <Alert type="info">{msg}</Alert>}
+    </section>
+  );
+}
+
+function SecuritySection() {
+  const [status, setStatus] = useState(null);
+  const [setup, setSetup] = useState(null);
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/2fa")
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => {});
+  }, []);
+
+  async function startSetup() {
+    const res = await fetch("/api/auth/2fa", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      setMsg(data.error || "Erreur");
+      return;
+    }
+    setSetup(data);
+    setMsg("");
+  }
+
+  async function confirmSetup() {
+    const res = await fetch("/api/auth/2fa", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, action: "enable" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMsg(data.error || "Code invalide");
+      return;
+    }
+    setStatus({ enabled: true });
+    setSetup(null);
+    setMsg("2FA activée");
+  }
+
+  async function disable() {
+    const res = await fetch("/api/auth/2fa", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, action: "disable" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMsg(data.error || "Code invalide");
+      return;
+    }
+    setStatus({ enabled: false });
+    setMsg("2FA désactivée");
+  }
+
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="text-lg font-medium">Authentification à deux facteurs</h2>
+      <p className="text-sm text-[var(--text-muted)]">
+        Protégez votre compte avec une app TOTP (Google Authenticator, etc.).
+      </p>
+      {status?.enabled ? (
+        <>
+          <Alert type="success">2FA active</Alert>
+          <input
+            className="w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2"
+            placeholder="Code à 6 chiffres"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <button type="button" className="btn btn-secondary" onClick={disable}>
+            Désactiver la 2FA
+          </button>
+        </>
+      ) : (
+        <>
+          {!setup ? (
+            <button type="button" className="btn btn-secondary" onClick={startSetup}>
+              Configurer la 2FA
+            </button>
+          ) : (
+            <div className="space-y-2">
+              {setup.qrDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={setup.qrDataUrl} alt="QR 2FA" className="h-40 w-40" />
+              )}
+              <p className="break-all font-mono text-xs text-[var(--text-muted)]">
+                Secret : {setup.secret}
+              </p>
+              <input
+                className="w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2"
+                placeholder="Code à 6 chiffres"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <button type="button" className="btn btn-primary" onClick={confirmSetup}>
+                Activer
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {msg && <Alert type="info">{msg}</Alert>}
+    </section>
+  );
+}
+
+function PushSection() {
+  const [msg, setMsg] = useState("");
+  const [supported, setSupported] = useState(false);
+
+  useEffect(() => {
+    setSupported(
+      typeof window !== "undefined" &&
+        "serviceWorker" in navigator &&
+        "PushManager" in window
+    );
+  }, []);
+
+  async function enablePush() {
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const keyRes = await fetch("/api/push/vapid-public-key");
+      const keyData = await keyRes.json();
+      if (!keyData.publicKey) {
+        setMsg("Notifications non configurées sur le serveur (VAPID).");
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
+      });
+      const json = sub.toJSON();
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          keys: json.keys,
+        }),
+      });
+      const data = await res.json();
+      setMsg(data.message || data.error || "Abonnement enregistré");
+    } catch (e) {
+      setMsg(e.message || "Activation impossible");
+    }
+  }
+
+  if (!supported) return null;
+
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="text-lg font-medium">Notifications navigateur</h2>
+      <p className="text-sm text-[var(--text-muted)]">
+        Recevez les alertes billet même sans ouvrir vos emails.
+      </p>
+      <button type="button" className="btn btn-secondary" onClick={enablePush}>
+        Activer les notifications
+      </button>
+      {msg && <Alert type="info">{msg}</Alert>}
+    </section>
+  );
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
+  return out;
 }

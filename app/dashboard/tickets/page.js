@@ -70,7 +70,12 @@ export default function TicketsPage() {
             <li key={t.id} className="card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-medium">{t.eventName}</h2>
+                  <Link
+                    href={`/dashboard/tickets/${t.id}`}
+                    className="text-lg font-medium hover:text-[var(--accent)]"
+                  >
+                    {t.eventName}
+                  </Link>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
                     {[t.venue, t.city, t.platform].filter(Boolean).join(" · ")}
                   </p>
@@ -114,6 +119,12 @@ export default function TicketsPage() {
                     }
                     duplicateCount={t.detectedDuplicate ? t.duplicateCount : 0}
                   />
+                  <Link
+                    href={`/dashboard/tickets/${t.id}`}
+                    className="btn btn-secondary !py-1.5 !px-3 text-sm"
+                  >
+                    Détail
+                  </Link>
                   <button
                     type="button"
                     className="btn btn-danger !py-1.5 !px-3 text-sm"

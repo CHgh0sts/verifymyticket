@@ -6,6 +6,7 @@ import { hashSeatKey } from "@/lib/seat";
 import { verifyCaptcha } from "@/lib/captcha";
 import { rateLimitCheck } from "@/lib/rate-limit";
 import { writeAuditLog } from "@/lib/audit";
+import { computeRiskScore } from "@/lib/risk-score";
 import { notifySightingWatchers, upsertCheckWatch } from "@/lib/check-watch";
 import { publicCheckSchema } from "@/lib/validations";
 import { jsonError, jsonOk, jsonZodError, parseOptionalDate } from "@/lib/api";
@@ -301,6 +302,7 @@ function responseFor({
   intent,
   sightingId,
   event,
+  risk,
 }) {
   if (found) {
     const alert = alertFromPrior({
@@ -320,73 +322,57 @@ function responseFor({
       sightingId,
       saved: true,
       event,
+      risk,
     };
   }
 
   const askPurchaseFollowUp = intent === "precheck";
-
-  if (checkType === "name") {
-    return {
-      status: "clean",
-      checkType,
-      matchCount: 0,
-      intent,
-      askPurchaseFollowUp,
-      sightingId,
-      saved: true,
-      message: askPurchaseFollowUp
-        ? "Aucun billet avec ce nom trouvé pour cet événement."
-        : "Aucun billet avec ce nom trouvé. Enregistré comme billet déjà acheté.",
-      event,
-    };
-  }
-
-  if (checkType === "seat") {
-    return {
-      status: "clean",
-      checkType,
-      matchCount: 0,
-      intent,
-      askPurchaseFollowUp,
-      sightingId,
-      saved: true,
-      message: askPurchaseFollowUp
-        ? "Aucun billet avec cet emplacement trouvé pour cet événement."
-        : "Aucun billet avec cet emplacement trouvé. Enregistré comme billet déjà acheté.",
-      event,
-    };
-  }
-
-  if (mode === "last4") {
-    return {
-      status: "clean",
-      checkType,
-      mode: "last4",
-      matchCount: 0,
-      intent,
-      askPurchaseFollowUp,
-      sightingId,
-      saved: true,
-      message: askPurchaseFollowUp
-        ? "Aucun billet avec ces 4 caractères trouvé pour cet événement."
-        : "Aucun billet avec ces 4 caractères trouvé. Enregistré comme billet déjà acheté.",
-      event,
-    };
-  }
-
-  return {
+  const cleanBase = {
     status: "clean",
     checkType,
-    mode: "full",
     matchCount: 0,
     intent,
     askPurchaseFollowUp,
     sightingId,
     saved: true,
-    message: askPurchaseFollowUp
-      ? "Aucun doublon détecté pour cet événement."
-      : "Aucun doublon détecté. Enregistré comme billet déjà acheté.",
     event,
+    risk,
+  };
+
+  if (checkType === "name") {
+    return {
+      ...cleanBase,
+      message: askPurchaseFollowUp
+        ? "Aucun billet avec ce nom trouvé pour cet événement."
+        : "Aucun billet avec ce nom trouvé. Enregistré comme billet déjà acheté.",
+    };
+  }
+
+  if (checkType === "seat") {
+    return {
+      ...cleanBase,
+      message: askPurchaseFollowUp
+        ? "Aucun billet avec cet emplacement trouvé pour cet événement."
+        : "Aucun billet avec cet emplacement trouvé. Enregistré comme billet déjà acheté.",
+    };
+  }
+
+  if (mode === "last4") {
+    return {
+      ...cleanBase,
+      mode: "last4",
+      message: askPurchaseFollowUp
+        ? "Aucun billet avec ces 4 caractères trouvé pour cet événement."
+        : "Aucun billet avec ces 4 caractères trouvé. Enregistré comme billet déjà acheté.",
+    };
+  }
+
+  return {
+    ...cleanBase,
+    mode: "full",
+    message: askPurchaseFollowUp
+      ? "Aucun billet avec ce code trouvé pour cet événement."
+      : "Aucun billet avec ce code trouvé. Enregistré comme billet déjà acheté.",
   };
 }
 
@@ -487,6 +473,17 @@ export async function POST(request) {
 
   const found = matches.count > 0;
 
+  const risk = computeRiskScore({
+    found,
+    matchCount: matches.count,
+    hasRegisteredTicket: matches.hasRegisteredTicket,
+    priorStatus: matches.priorStatus,
+    checkType,
+    mode: checkType === "barcode" ? barcodeMode : undefined,
+    tickets: matches.tickets || [],
+    sightings: matches.sightings || [],
+  });
+
   const sighting = await saveSighting({
     mode,
     barcodeHash,
@@ -554,6 +551,7 @@ export async function POST(request) {
       intent,
       sightingId: sighting?.id || null,
       event,
+      risk,
     })
   );
 }

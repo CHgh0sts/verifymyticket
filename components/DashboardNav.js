@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
-const links = [
-  { href: "/dashboard", label: "Vue d'ensemble", exact: true },
-  { href: "/dashboard/tickets", label: "Mes billets", exact: true },
-  { href: "/dashboard/tickets/new", label: "Ajouter" },
-  { href: "/dashboard/duplicates", label: "Doublons" },
-  { href: "/dashboard/profile", label: "Profil" },
-];
+import { useLocale } from "@/components/LocaleProvider";
 
 export default function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useLocale();
+
+  const links = [
+    { href: "/dashboard", label: t("dash.overview"), exact: true },
+    { href: "/dashboard/tickets", label: t("dash.tickets"), exact: true },
+    { href: "/dashboard/tickets/new", label: t("dash.add") },
+    { href: "/dashboard/alerts", label: t("dash.alerts") },
+    { href: "/dashboard/events", label: t("dash.events") },
+    { href: "/dashboard/duplicates", label: t("dash.duplicates") },
+    { href: "/dashboard/organizer", label: t("dash.organizer") },
+    { href: "/dashboard/profile", label: t("dash.profile") },
+  ];
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -52,7 +57,7 @@ export default function DashboardNav() {
           onClick={logout}
           className="mt-auto whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--danger)] lg:mt-8"
         >
-          Déconnexion
+          {t("dash.logout")}
         </button>
       </nav>
     </aside>

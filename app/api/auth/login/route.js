@@ -9,8 +9,14 @@ import {
 } from "@/lib/auth";
 import { isLoginLocked, recordLoginAttempt, writeAuditLog } from "@/lib/audit";
 import { rateLimitAuth } from "@/lib/rate-limit";
+import { verifyTotpCode } from "@/lib/totp";
 import { loginSchema } from "@/lib/validations";
-import { jsonError, jsonZodError } from "@/lib/api";
+import { jsonError, jsonZodError, jsonOk } from "@/lib/api";
+import { z } from "zod";
+
+const loginWithTotpSchema = loginSchema.extend({
+  totpCode: z.string().optional(),
+});
 
 export async function POST(request) {
   if (!assertSameOrigin(request)) {
@@ -30,11 +36,11 @@ export async function POST(request) {
     return jsonError("JSON invalide");
   }
 
-  const parsed = loginSchema.safeParse(body);
+  const parsed = loginWithTotpSchema.safeParse(body);
   if (!parsed.success) return jsonZodError(parsed.error);
 
   const email = parsed.data.email.toLowerCase().trim();
-  const { password } = parsed.data;
+  const { password, totpCode } = parsed.data;
 
   if (await isLoginLocked(email, ip)) {
     return jsonError(
@@ -44,8 +50,14 @@ export async function POST(request) {
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
+  if (!user || !user.password) {
     await recordLoginAttempt({ email, ip, success: false });
+    if (user && !user.password) {
+      return jsonError(
+        "Ce compte utilise Google. Connectez-vous via « Continuer avec Google ».",
+        401
+      );
+    }
     return jsonError("Email ou mot de passe incorrect", 401);
   }
 
@@ -60,6 +72,16 @@ export async function POST(request) {
       "Email non vérifié. Consultez votre boîte mail ou demandez un nouvel envoi.",
       403
     );
+  }
+
+  if (user.totpEnabled) {
+    if (!totpCode) {
+      return jsonOk({ requires2fa: true, message: "Code 2FA requis" });
+    }
+    if (!verifyTotpCode(user.totpSecret, totpCode)) {
+      await recordLoginAttempt({ email, ip, success: false, userId: user.id });
+      return jsonError("Code 2FA invalide", 401);
+    }
   }
 
   const token = await createSessionToken({

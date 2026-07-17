@@ -8,22 +8,24 @@ import { z } from "zod";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Alert } from "@/components/ui";
+import { useLocale } from "@/components/LocaleProvider";
 
 const schema = z.object({
   username: z
     .string()
-    .min(3, "3 caractères minimum")
+    .min(3)
     .max(32)
-    .regex(/^[a-zA-Z0-9_-]+$/, "Lettres, chiffres, _ et - uniquement"),
-  email: z.string().email("Email invalide"),
+    .regex(/^[a-zA-Z0-9_-]+$/),
+  email: z.string().email(),
   password: z
     .string()
-    .min(8, "8 caractères minimum")
-    .regex(/[A-Za-z]/, "Doit contenir une lettre")
-    .regex(/[0-9]/, "Doit contenir un chiffre"),
+    .min(8)
+    .regex(/[A-Za-z]/)
+    .regex(/[0-9]/),
 });
 
 export default function RegisterPage() {
+  const { t } = useLocale();
   const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,12 +48,12 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setServerError(data.error || "Inscription impossible");
+        setServerError(data.error || t("common.error"));
         return;
       }
       setSuccess(data.message);
     } catch {
-      setServerError("Erreur réseau");
+      setServerError(t("common.networkError"));
     } finally {
       setLoading(false);
     }
@@ -61,18 +63,18 @@ export default function RegisterPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader showAuth={false} />
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-12 sm:px-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Inscription</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">{t("auth.registerTitle")}</h1>
         <p className="mt-2 text-[var(--text-muted)]">
-          Déjà un compte ?{" "}
+          {t("auth.registerHasAccount")}{" "}
           <Link href="/login" className="text-[var(--accent)] hover:underline">
-            Se connecter
+            {t("auth.submitLogin")}
           </Link>
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="card mt-8 space-y-4 p-6">
           <div>
             <label className="label" htmlFor="username">
-              Nom d&apos;utilisateur
+              {t("auth.username")}
             </label>
             <input id="username" className="input" autoComplete="username" {...register("username")} />
             {errors.username && (
@@ -81,7 +83,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="label" htmlFor="email">
-              Email
+              {t("auth.email")}
             </label>
             <input id="email" type="email" className="input" autoComplete="email" {...register("email")} />
             {errors.email && (
@@ -90,7 +92,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="label" htmlFor="password">
-              Mot de passe
+              {t("auth.password")}
             </label>
             <PasswordInput
               id="password"
@@ -104,7 +106,7 @@ export default function RegisterPage() {
           {serverError && <Alert type="error">{serverError}</Alert>}
           {success && <Alert type="success">{success}</Alert>}
           <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-            {loading ? "Création…" : "Créer mon compte"}
+            {loading ? t("auth.creating") : t("auth.createAccount")}
           </button>
         </form>
       </main>

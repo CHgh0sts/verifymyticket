@@ -14,21 +14,23 @@ export async function GET(request) {
   const keyword = searchParams.get("q") || searchParams.get("keyword") || "";
   const city = searchParams.get("city") || "";
   const countryCode = searchParams.get("country") || "";
+  const source = searchParams.get("source") || "all";
 
   if (keyword.trim().length < 2) {
     return jsonError("Indiquez au moins 2 caractères (ex. BTS, Coldplay…)", 400);
   }
 
   try {
-    const result = await searchEuropeEvents({ keyword, city, countryCode });
+    const result = await searchEuropeEvents({ keyword, city, countryCode, source });
     const groups = groupEventsByAttraction(result.events);
 
     return jsonOk({
       keyword,
       city: city || null,
+      source,
       count: result.events.length,
       demo: result.demo,
-      source: result.source,
+      sourceLabel: result.source,
       message: result.message || null,
       events: result.events,
       groups,

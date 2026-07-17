@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatCard, RiskBadge } from "@/components/ui";
+import { useLocale } from "@/components/LocaleProvider";
 
 export default function DashboardPage() {
+  const { t } = useLocale();
   const [data, setData] = useState(null);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -28,7 +30,7 @@ export default function DashboardPage() {
   }
 
   if (!data || !profile) {
-    return <p className="text-[var(--text-muted)]">Chargement…</p>;
+    return <p className="text-[var(--text-muted)]">{t("common.loading")}</p>;
   }
 
   const recent = data.tickets.slice(0, 5);
@@ -37,38 +39,34 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Bonjour, {profile.username}
+          {t("dash.hello")}, {profile.username}
         </h1>
-        <p className="mt-1 text-[var(--text-muted)]">
-          Tableau de bord — historique et statistiques de vos billets.
-        </p>
+        <p className="mt-1 text-[var(--text-muted)]">{t("dash.overviewHint")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Billets enregistrés" value={data.stats.total} />
-        <StatCard label="Sans doublon" value={data.stats.clean} hint="Risque faible" />
+        <StatCard label={t("dash.total")} value={data.stats.total} />
+        <StatCard label={t("dash.clean")} value={data.stats.clean} hint={t("dash.riskLow")} />
         <StatCard
-          label="Doublons détectés"
+          label={t("dash.dupes")}
           value={data.stats.duplicates}
-          hint="À surveiller"
+          hint={t("dash.riskMedium")}
         />
       </div>
 
       <div className="flex flex-wrap gap-3">
         <Link href="/dashboard/tickets/new" className="btn btn-primary">
-          Enregistrer un billet
+          {t("dash.addTicket")}
         </Link>
         <Link href="/dashboard/tickets" className="btn btn-secondary">
-          Voir tous les billets
+          {t("dash.seeAll")}
         </Link>
       </div>
 
       <section>
-        <h2 className="text-lg font-semibold">Historique récent</h2>
+        <h2 className="text-lg font-semibold">{t("dash.recent")}</h2>
         {recent.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--text-muted)]">
-            Aucun billet pour le moment.
-          </p>
+          <p className="mt-3 text-sm text-[var(--text-muted)]">{t("dash.noTickets")}</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {recent.map((t) => (

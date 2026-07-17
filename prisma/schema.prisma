@@ -2,6 +2,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// SQLite en local. Pour Postgres en prod : provider = "postgresql"
+// et DATABASE_URL=postgresql://... — voir docs/DEPLOY.md
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -26,26 +28,40 @@ enum BarcodeType {
 }
 
 model User {
-  id                     String         @id @default(cuid())
-  username               String         @unique
-  email                  String         @unique
-  password               String
+  id                     String              @id @default(cuid())
+  username               String              @unique
+  email                  String              @unique
+  /// Null si compte Google OAuth uniquement
+  password               String?
+  googleId               String?             @unique
   emailVerified          DateTime?
-  emailVerifyToken       String?        @unique
+  emailVerifyToken       String?             @unique
   emailVerifyExpires     DateTime?
-  resetPasswordToken     String?        @unique
+  resetPasswordToken     String?             @unique
   resetPasswordExpires   DateTime?
   pendingEmail           String?
-  emailChangeToken       String?        @unique
+  emailChangeToken       String?             @unique
   emailChangeExpires     DateTime?
   pendingPasswordHash    String?
-  passwordChangeToken    String?        @unique
+  passwordChangeToken    String?             @unique
   passwordChangeExpires  DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
+  totpSecret             String?
+  totpEnabled            Boolean             @default(false)
+  locale                 String              @default("fr")
+  /// user | organizer
+  role                   String              @default("user")
+  deleteAccountToken     String?             @unique
+  deleteAccountExpires   DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
   tickets                Ticket[]
   loginAttempts          LoginAttempt[]
   auditLogs              AuditLog[]
+  pushSubscriptions      PushSubscription[]
+  organizerApiKeys       OrganizerApiKey[]
+  organizerBatches       OrganizerBatch[]
+  checkProofs            CheckProof[]
+  watchNotifications     WatchNotification[]
 }
 
 model Ticket {
@@ -67,6 +83,7 @@ model Ticket {
   purchaserNameHash String?
   purchasePrice     Decimal?
   purchaseDate      DateTime?
+  notes             String?
   barcodeHash       String
   barcodeSuffixHash String
   barcodeLastDigits String
@@ -88,6 +105,7 @@ model Ticket {
   @@index([eventName, venue, eventDate])
   @@index([ownerId])
   @@index([createdAt])
+  @@index([eventDate])
 }
 
 model LoginAttempt {
@@ -129,7 +147,7 @@ model CheckLog {
 
 /// Vérifications publiques liées à un événement (hashes uniquement).
 model CodeSighting {
-  id                String    @id @default(cuid())
+  id                String           @id @default(cuid())
   /// name | seat | barcode | last4 (legacy barcode modes: full/last4 aussi acceptés)
   mode              String
   barcodeHash       String?
@@ -141,13 +159,14 @@ model CodeSighting {
   venue             String?
   city              String?
   eventDate         DateTime?
-  checkCount        Int       @default(1)
+  checkCount        Int              @default(1)
   /// owned = déjà acheté | watching = vérif avant achat | claimed = confirmé acheté après vérif OK
-  purchaseStatus    String    @default("watching")
+  purchaseStatus    String           @default("watching")
   ip                String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   watches           CheckWatch[]
+  proofs            CheckProof[]
 
   @@index([barcodeHash])
   @@index([barcodeSuffixHash])
@@ -161,15 +180,108 @@ model CodeSighting {
 
 /// Emails à prévenir si la même vérif reçoit une activité ultérieure.
 model CheckWatch {
-  id         String       @id @default(cuid())
-  email      String
-  userId     String?
-  sightingId String
-  sighting   CodeSighting @relation(fields: [sightingId], references: [id], onDelete: Cascade)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id             String              @id @default(cuid())
+  email          String
+  userId         String?
+  sightingId     String
+  sighting       CodeSighting        @relation(fields: [sightingId], references: [id], onDelete: Cascade)
+  active         Boolean             @default(true)
+  unreadCount    Int                 @default(0)
+  lastNotifiedAt DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  notifications  WatchNotification[]
 
   @@unique([sightingId, email])
   @@index([email])
   @@index([userId])
+  @@index([active])
+}
+
+model WatchNotification {
+  id        String     @id @default(cuid())
+  watchId   String
+  watch     CheckWatch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reason    String
+  status    String?
+  readAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([watchId, createdAt])
+  @@index([userId, readAt])
+}
+
+/// Preuve de vérification partageable (lien court expirable).
+model CheckProof {
+  id         String        @id @default(cuid())
+  token      String        @unique
+  sightingId String?
+  sighting   CodeSighting? @relation(fields: [sightingId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payload    Json
+  expiresAt  DateTime
+  createdAt  DateTime      @default(now())
+
+  @@index([expiresAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OrganizerApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
+}
+
+/// Lot de hashes uploadés par un organisateur (B2B).
+model OrganizerBatch {
+  id          String               @id @default(cuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventName   String
+  eventDate   DateTime?
+  venue       String?
+  city        String?
+  externalId  String?
+  itemCount   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  items       OrganizerBatchItem[]
+
+  @@index([userId])
+  @@index([eventName])
+}
+
+model OrganizerBatchItem {
+  id                String         @id @default(cuid())
+  batchId           String
+  batch             OrganizerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  barcodeHash       String
+  barcodeSuffixHash String?
+  seatLabel         String?
+  createdAt         DateTime       @default(now())
+
+  @@index([batchId])
+  @@index([barcodeHash])
+  @@index([barcodeSuffixHash])
 }

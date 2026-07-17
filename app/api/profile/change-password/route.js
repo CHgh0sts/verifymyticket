@@ -33,6 +33,12 @@ export async function POST(request) {
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user) return jsonError("Utilisateur introuvable", 404);
+  if (!user.password) {
+    return jsonError(
+      "Ce compte utilise Google. Définissez un mot de passe via « mot de passe oublié » si besoin, ou gérez le compte Google.",
+      400
+    );
+  }
 
   const valid = await verifyPassword(parsed.data.currentPassword, user.password);
   if (!valid) return jsonError("Mot de passe actuel incorrect", 401);

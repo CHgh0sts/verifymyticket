@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale } from "@/components/LocaleProvider";
 
 export default function HeroCtas() {
+  const { t } = useLocale();
   const [user, setUser] = useState(undefined);
 
   useEffect(() => {
@@ -34,10 +36,10 @@ export default function HeroCtas() {
     return (
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/check" className="btn btn-primary">
-          Vérifier un billet
+          {t("hero.ctaCheck")}
         </Link>
         <Link href="/dashboard" className="btn btn-secondary">
-          Mon dashboard
+          {t("hero.ctaDashboard")}
         </Link>
       </div>
     );
@@ -46,10 +48,10 @@ export default function HeroCtas() {
   return (
     <div className="mt-8 flex flex-wrap gap-3">
       <Link href="/check" className="btn btn-primary">
-        Vérifier un billet
+        {t("hero.ctaCheck")}
       </Link>
       <Link href="/register" className="btn btn-secondary">
-        Créer un compte
+        {t("hero.ctaRegister")}
       </Link>
     </div>
   );

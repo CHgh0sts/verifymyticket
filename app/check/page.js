@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +9,8 @@ import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { Alert } from "@/components/ui";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import ShareProofButton from "@/components/ShareProofButton";
+import { useLocale } from "@/components/LocaleProvider";
 
 const alertEmailSchema = z.object({
   alertEmail: z.string().email("Email invalide").max(255),
@@ -48,55 +50,6 @@ const barcodeLast4Schema = z.object({
     .length(4, "Exactement 4 caractères")
     .regex(/^\S{4}$/, "4 caractères sans espace"),
 });
-
-const PHASES_GUEST = [
-  { phase: "account", label: "Compte" },
-  { phase: "event", label: "Événement" },
-  { phase: "date", label: "Date" },
-  { phase: "intent", label: "Contexte" },
-  { phase: "method", label: "Méthode" },
-  { phase: "infos", label: "Infos" },
-];
-
-const PHASES_AUTH = [
-  { phase: "event", label: "Événement" },
-  { phase: "date", label: "Date" },
-  { phase: "intent", label: "Contexte" },
-  { phase: "method", label: "Méthode" },
-  { phase: "infos", label: "Infos" },
-];
-
-const INTENTS = [
-  {
-    id: "owned",
-    label: "J'ai déjà acheté le billet",
-    description: "Je vérifie un billet que je possède déjà.",
-  },
-  {
-    id: "precheck",
-    label: "Je vérifie avant d'acheter",
-    description:
-      "Je veux savoir s'il a déjà circulé. Si c'est OK, on te demandera si tu l'achètes.",
-  },
-];
-
-const CHECK_TYPES = [
-  {
-    id: "name",
-    label: "Nom et prénom",
-    description: "Vérifie si ce nom a déjà été vu pour cet événement.",
-  },
-  {
-    id: "seat",
-    label: "Emplacement",
-    description: "Compare bloc, rang et siège déjà enregistrés.",
-  },
-  {
-    id: "barcode",
-    label: "Code-barres / QR",
-    description: "Vérifie le code complet ou les 4 derniers caractères.",
-  },
-];
 
 function Stepper({ phases, phase }) {
   const currentIdx = phases.findIndex((p) => p.phase === phase);
@@ -147,6 +100,7 @@ function Stepper({ phases, phase }) {
 }
 
 export default function CheckPage() {
+  const { t } = useLocale();
   const [user, setUser] = useState(undefined);
   const [phase, setPhase] = useState(null);
   const [alertEmail, setAlertEmail] = useState("");
@@ -163,6 +117,14 @@ export default function CheckPage() {
   const [intent, setIntent] = useState(null);
   const [checkType, setCheckType] = useState(null);
   const [barcodeMode, setBarcodeMode] = useState("full");
+  const [eventSource, setEventSource] = useState("all");
+  const [manualMode, setManualMode] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    name: "",
+    venue: "",
+    city: "",
+    date: "",
+  });
   const [captchaToken, setCaptchaToken] = useState("");
   const [result, setResult] = useState(null);
   const [serverError, setServerError] = useState("");
@@ -175,8 +137,68 @@ export default function CheckPage() {
   const abortRef = useRef(null);
   const requestIdRef = useRef(0);
 
+  const phasesGuest = useMemo(
+    () => [
+      { phase: "account", label: t("check.phaseAccount") },
+      { phase: "event", label: t("check.phaseEvent") },
+      { phase: "date", label: t("check.phaseDate") },
+      { phase: "intent", label: t("check.phaseContext") },
+      { phase: "method", label: t("check.phaseMethod") },
+      { phase: "infos", label: t("check.phaseInfo") },
+    ],
+    [t]
+  );
+
+  const phasesAuth = useMemo(
+    () => [
+      { phase: "event", label: t("check.phaseEvent") },
+      { phase: "date", label: t("check.phaseDate") },
+      { phase: "intent", label: t("check.phaseContext") },
+      { phase: "method", label: t("check.phaseMethod") },
+      { phase: "infos", label: t("check.phaseInfo") },
+    ],
+    [t]
+  );
+
+  const INTENTS = useMemo(
+    () => [
+      {
+        id: "owned",
+        label: t("check.ownedTitle"),
+        description: t("check.ownedText"),
+      },
+      {
+        id: "precheck",
+        label: t("check.precheckTitle"),
+        description: t("check.precheckText"),
+      },
+    ],
+    [t]
+  );
+
+  const CHECK_TYPES = useMemo(
+    () => [
+      {
+        id: "name",
+        label: t("check.methodName"),
+        description: t("check.methodNameText"),
+      },
+      {
+        id: "seat",
+        label: t("check.methodSeat"),
+        description: t("check.methodSeatText"),
+      },
+      {
+        id: "barcode",
+        label: t("check.methodBarcode"),
+        description: t("check.methodBarcodeText"),
+      },
+    ],
+    [t]
+  );
+
   const authReady = user !== undefined && phase !== null;
-  const phases = user ? PHASES_AUTH : PHASES_GUEST;
+  const phases = user ? phasesAuth : phasesGuest;
 
   const {
     register: registerAlertEmail,
@@ -276,6 +298,7 @@ export default function CheckPage() {
     try {
       const params = new URLSearchParams({ q: trimmed });
       if (c.trim()) params.set("city", c.trim());
+      if (eventSource && eventSource !== "all") params.set("source", eventSource);
 
       const res = await fetch(`/api/events/search?${params}`, {
         signal: controller.signal,
@@ -293,23 +316,23 @@ export default function CheckPage() {
       setGroups(data.groups || []);
       setHighlight(0);
       if ((data.groups || []).length === 0) {
-        setSearchError("Aucun événement trouvé");
+        setSearchError(t("check.noEvent"));
       }
     } catch (err) {
       if (err?.name === "AbortError") return;
       if (reqId !== requestIdRef.current) return;
       setGroups([]);
-      setSearchError("Erreur réseau");
+      setSearchError(t("common.networkError"));
     } finally {
       if (reqId === requestIdRef.current) setSearching(false);
     }
-  }, []);
+  }, [eventSource]);
 
   useEffect(() => {
     if (phase !== "event") return;
     const t = setTimeout(() => runSearch(query, city), 280);
     return () => clearTimeout(t);
-  }, [query, city, phase, runSearch]);
+  }, [query, city, phase, runSearch, eventSource]);
 
   useEffect(() => {
     function onDocClick(e) {
@@ -504,21 +527,10 @@ export default function CheckPage() {
       <SiteHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 sm:px-6 lg:max-w-4xl lg:px-8">
         <h1 className="animate-fade-up text-3xl font-semibold tracking-tight">
-          Vérifier un billet
+          {t("check.title")}
         </h1>
         <p className="animate-fade-up delay-1 mt-2 text-[var(--text-muted)]">
-          {authReady && !user ? (
-            <>
-              Connectez-vous ou indiquez un email pour être alerté si quelqu&apos;un
-              d&apos;autre vérifie le même billet plus tard, puis indiquez si vous
-              avez déjà acheté ou si vous vérifiez avant l&apos;achat.
-            </>
-          ) : (
-            <>
-              Indiquez si vous avez déjà acheté le billet ou si vous vérifiez avant
-              l&apos;achat, puis choisissez la méthode.
-            </>
-          )}
+          {user ? t("check.introAuth") : t("check.introGuest")}
         </p>
 
         <div className="animate-fade-up delay-2 mt-8">
@@ -550,7 +562,7 @@ export default function CheckPage() {
                 <div className="card space-y-5 p-6">
                   <div>
                     <h2 className="text-lg font-semibold tracking-tight">
-                      Comment souhaitez-vous continuer ?
+                      {t("check.howContinue")}
                     </h2>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
                       Vous serez alerté par email si quelqu&apos;un d&apos;autre vérifie
@@ -564,7 +576,7 @@ export default function CheckPage() {
                         href="/login?next=/check"
                         className="block w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3.5 text-left transition hover:border-[var(--accent)]"
                       >
-                        <span className="font-medium">Se connecter</span>
+                        <span className="font-medium">{t("check.login")}</span>
                         <span className="mt-0.5 block text-sm text-[var(--text-muted)]">
                           Utilisez votre compte pour recevoir les alertes sur votre email
                           enregistré.
@@ -604,7 +616,7 @@ export default function CheckPage() {
                       )}
                     </div>
                     <button type="submit" className="btn btn-primary w-full">
-                      Continuer avec cet email
+                      {t("check.continueEmail")}
                     </button>
                   </form>
 
@@ -620,7 +632,7 @@ export default function CheckPage() {
                   {!user && alertEmail && (
                     <div className="flex items-start justify-between gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3">
                       <div>
-                        <p className="text-sm text-[var(--text-muted)]">Alertes par email</p>
+                        <p className="text-sm text-[var(--text-muted)]">{t("check.alertsByEmail")}</p>
                         <p className="font-medium">{alertEmail}</p>
                       </div>
                       <button
@@ -633,15 +645,118 @@ export default function CheckPage() {
                     </div>
                   )}
 
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["all", t("check.sourceAll")],
+                      ["ticketmaster", t("check.sourceTm")],
+                      ["fnac", t("check.sourceFnac")],
+                      ["dice", t("check.sourceDice")],
+                      ["manual", t("check.sourceManual")],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                          (id === "manual" ? manualMode : eventSource === id && !manualMode)
+                            ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : "bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                        }`}
+                        onClick={() => {
+                          if (id === "manual") {
+                            setManualMode(true);
+                            setEventSource("all");
+                          } else {
+                            setManualMode(false);
+                            setEventSource(id);
+                          }
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {manualMode ? (
+                    <div className="space-y-3 rounded-[10px] border border-[var(--border)] p-4">
+                      <p className="text-sm text-[var(--text-muted)]">
+                        {t("check.manualHint")}
+                      </p>
+                      <input
+                        className="input"
+                        placeholder={t("check.eventName")}
+                        value={manualForm.name}
+                        onChange={(e) =>
+                          setManualForm((f) => ({ ...f, name: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder="Lieu"
+                        value={manualForm.venue}
+                        onChange={(e) =>
+                          setManualForm((f) => ({ ...f, venue: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder="Ville"
+                        value={manualForm.city}
+                        onChange={(e) =>
+                          setManualForm((f) => ({ ...f, city: e.target.value }))
+                        }
+                      />
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={manualForm.date}
+                        onChange={(e) =>
+                          setManualForm((f) => ({ ...f, date: e.target.value }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                          const name = manualForm.name.trim();
+                          if (name.length < 2) return;
+                          const iso = manualForm.date
+                            ? new Date(manualForm.date).toISOString()
+                            : null;
+                          const ev = {
+                            id: `manual-${Date.now()}`,
+                            name,
+                            attraction: name,
+                            venue: manualForm.venue || "Lieu non précisé",
+                            city: manualForm.city || "",
+                            date: iso,
+                            dateLabel: iso
+                              ? new Date(iso).toLocaleDateString("fr-FR")
+                              : "Date à confirmer",
+                            source: "manual",
+                          };
+                          setSelectedAttraction({
+                            attraction: name,
+                            occurrences: [ev],
+                          });
+                          setSelectedEvent(ev);
+                          setQuery(name);
+                          setPhase("date");
+                        }}
+                      >
+                        {t("check.continueEvent")}
+                      </button>
+                    </div>
+                  ) : (
+                  <>
                   <div ref={boxRef} className="relative">
                     <label className="label" htmlFor="eventQuery">
-                      Artiste / événement
+                      {t("check.artistEvent")}
                     </label>
                     <div className="relative">
                       <input
                         id="eventQuery"
                         className="input pr-10"
-                        placeholder="Ex. BTS, Coldplay, Taylor Swift…"
+                        placeholder={t("check.artistPlaceholder")}
                         value={query}
                         autoComplete="off"
                         role="combobox"
@@ -673,7 +788,7 @@ export default function CheckPage() {
                       >
                         {searching && groups.length === 0 && !searchError && (
                           <li className="px-4 py-3 text-sm text-[var(--text-muted)]">
-                            Recherche en cours…
+                            {t("check.searching")}
                           </li>
                         )}
                         {searchError && groups.length === 0 && (
@@ -709,12 +824,12 @@ export default function CheckPage() {
 
                   <div>
                     <label className="label" htmlFor="eventCity">
-                      Ville (optionnel — affine les suggestions)
+                      {t("check.cityOptional")}
                     </label>
                     <input
                       id="eventCity"
                       className="input"
-                      placeholder="Ex. Paris, Lyon, London…"
+                      placeholder={t("check.cityPlaceholder")}
                       value={city}
                       onChange={(e) => {
                         setCity(e.target.value);
@@ -725,7 +840,7 @@ export default function CheckPage() {
 
                   {searchMeta?.demo && query.trim().length >= 2 && (
                     <Alert type="info">
-                      Mode démo — ajoutez TICKETMASTER_API_KEY pour les vrais événements Europe.
+                      {t("check.demoMode")}
                     </Alert>
                   )}
 
@@ -733,6 +848,8 @@ export default function CheckPage() {
                     Les résultats se mettent à jour pendant que vous tapez. Cliquez une
                     suggestion pour continuer.
                   </p>
+                  </>
+                  )}
                 </div>
               )}
 
@@ -753,7 +870,7 @@ export default function CheckPage() {
                   </div>
 
                   <p className="text-sm text-[var(--text-muted)]">
-                    Sélectionnez la date et le lieu de votre billet :
+                    {t("check.pickDate")}
                   </p>
 
                   <ul className="space-y-2">
@@ -800,7 +917,7 @@ export default function CheckPage() {
 
                   <div>
                     <h2 className="text-lg font-semibold tracking-tight">
-                      Quelle est votre situation ?
+                      {t("check.situation")}
                     </h2>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
                       Cela change les messages d&apos;alerte pour les prochaines
@@ -855,7 +972,7 @@ export default function CheckPage() {
 
                   <div>
                     <h2 className="text-lg font-semibold tracking-tight">
-                      Comment voulez-vous vérifier ?
+                      {t("check.howVerify")}
                     </h2>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
                       Choisissez une méthode. Les informations à saisir s&apos;afficheront
@@ -990,7 +1107,7 @@ export default function CheckPage() {
                                 : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-hover)]"
                             }`}
                           >
-                            Code complet
+                            {t("check.codeFull")}
                           </button>
                           <button
                             type="button"
@@ -1001,7 +1118,7 @@ export default function CheckPage() {
                                 : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-hover)]"
                             }`}
                           >
-                            4 derniers caractères
+                            {t("check.codeLast4")}
                           </button>
                         </div>
                       </div>
@@ -1009,7 +1126,7 @@ export default function CheckPage() {
                       {barcodeMode === "last4" && (
                         <Alert type="info">
                           Si le vendeur refuse le code entier, entrez les{" "}
-                          <strong>4 derniers caractères</strong>. Un match indique un{" "}
+                          <strong>{t("check.codeLast4")}</strong>. Un match indique un{" "}
                           <strong>doute</strong>, pas une certitude.
                         </Alert>
                       )}
@@ -1017,8 +1134,8 @@ export default function CheckPage() {
                       <div>
                         <label className="label" htmlFor="barcodeValue">
                           {barcodeMode === "last4"
-                            ? "4 derniers caractères du code"
-                            : "Valeur du QR / code-barres"}
+                            ? t("check.codeLast4")
+                            : t("check.barcode")}
                         </label>
                         {barcodeMode === "last4" ? (
                           <input
@@ -1076,15 +1193,45 @@ export default function CheckPage() {
                         )}
                         {result.saved && (
                           <p className="mt-1 text-xs opacity-75">
-                            Enregistré pour cet événement (hashes uniquement).
+                            {t("check.savedHashes")}
                           </p>
                         )}
                       </Alert>
 
+                      {result.risk && (
+                        <div className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-medium">
+                              {t("check.riskLevel")} {result.risk.label}
+                            </p>
+                            <span className="text-sm text-[var(--text-muted)]">
+                              Score {result.risk.score}/100
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-[var(--text-muted)]">
+                            {result.risk.summary}
+                          </p>
+                          {result.risk.factors?.length > 0 && (
+                            <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-[var(--text-muted)]">
+                              {result.risk.factors.map((f) => (
+                                <li key={f.id}>{f.text}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+
+                      {result.sightingId && (
+                        <ShareProofButton
+                          sightingId={result.sightingId}
+                          result={result}
+                        />
+                      )}
+
                       {result.askPurchaseFollowUp && result.sightingId && !followUpDone && (
                         <div className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
                           <p className="font-medium">
-                            Avez-vous acheté / allez-vous prendre ce billet ?
+                            {t("check.buyFollowUp")}
                           </p>
                           <p className="mt-1 text-sm text-[var(--text-muted)]">
                             Oui = compté comme acheté. Non = gardé en mémoire comme
@@ -1126,15 +1273,15 @@ export default function CheckPage() {
                         className="btn btn-primary w-full"
                         onClick={resetForAnotherTicket}
                       >
-                        Vérifier un autre billet
+                        {t("check.checkAnother")}
                       </button>
                       <Link href="/" className="btn btn-secondary w-full">
-                        Retour à l&apos;accueil
+                        {t("check.backHome")}
                       </Link>
                     </div>
                   ) : !result ? (
                     <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-                      {loading ? "Vérification…" : "Vérifier"}
+                      {loading ? t("check.verifying") : t("check.verify")}
                     </button>
                   ) : null}
                 </form>

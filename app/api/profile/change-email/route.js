@@ -38,6 +38,13 @@ export async function POST(request) {
     return jsonError("Cette adresse est déjà votre email actuel");
   }
 
+  if (!user.password) {
+    return jsonError(
+      "Ce compte Google n’a pas de mot de passe local. Contactez le support pour changer d’email.",
+      400
+    );
+  }
+
   const valid = await verifyPassword(parsed.data.currentPassword, user.password);
   if (!valid) return jsonError("Mot de passe actuel incorrect", 401);
 
