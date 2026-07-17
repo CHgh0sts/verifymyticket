@@ -18,6 +18,15 @@ export const metadata = {
   title: "VerifyMyTicket — Détectez les billets revendus plusieurs fois",
   description:
     "Enregistrez vos billets de concert et détectez si le même QR code circule déjà sur une plateforme de revente.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
