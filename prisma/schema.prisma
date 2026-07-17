@@ -61,8 +61,10 @@ model Ticket {
   seat              String?
   row               String?
   block             String?
+  seatKeyHash       String?
   ticketCategory    String?
   purchaserName     String?
+  purchaserNameHash String?
   purchasePrice     Decimal?
   purchaseDate      DateTime?
   barcodeHash       String
@@ -80,6 +82,8 @@ model Ticket {
   @@unique([barcodeHash, ownerId])
   @@index([barcodeHash])
   @@index([barcodeSuffixHash])
+  @@index([purchaserNameHash])
+  @@index([seatKeyHash])
   @@index([externalEventId])
   @@index([eventName, venue, eventDate])
   @@index([ownerId])
@@ -123,25 +127,49 @@ model CheckLog {
   @@index([createdAt])
 }
 
-/// Codes vérifiés publiquement, liés à un événement précis (hash uniquement).
+/// Vérifications publiques liées à un événement (hashes uniquement).
 model CodeSighting {
   id                String    @id @default(cuid())
+  /// name | seat | barcode | last4 (legacy barcode modes: full/last4 aussi acceptés)
   mode              String
   barcodeHash       String?
-  barcodeSuffixHash String
+  barcodeSuffixHash String?
+  purchaserNameHash String?
+  seatKeyHash       String?
   externalEventId   String?
   eventName         String
   venue             String?
   city              String?
   eventDate         DateTime?
   checkCount        Int       @default(1)
+  /// owned = déjà acheté | watching = vérif avant achat | claimed = confirmé acheté après vérif OK
+  purchaseStatus    String    @default("watching")
   ip                String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  watches           CheckWatch[]
 
   @@index([barcodeHash])
   @@index([barcodeSuffixHash])
+  @@index([purchaserNameHash])
+  @@index([seatKeyHash])
+  @@index([purchaseStatus])
   @@index([externalEventId])
   @@index([eventName, venue, eventDate])
   @@index([createdAt])
+}
+
+/// Emails à prévenir si la même vérif reçoit une activité ultérieure.
+model CheckWatch {
+  id         String       @id @default(cuid())
+  email      String
+  userId     String?
+  sightingId String
+  sighting   CodeSighting @relation(fields: [sightingId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([sightingId, email])
+  @@index([email])
+  @@index([userId])
 }

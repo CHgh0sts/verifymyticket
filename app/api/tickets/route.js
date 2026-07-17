@@ -5,6 +5,8 @@ import {
   requireAuth,
 } from "@/lib/auth";
 import { hashBarcode, hashBarcodeSuffix, maskLastDigits, getRiskLevel } from "@/lib/hmac";
+import { hashPersonName } from "@/lib/names";
+import { hashSeatKey } from "@/lib/seat";
 import { writeAuditLog } from "@/lib/audit";
 import { ticketCreateSchema } from "@/lib/validations";
 import {
@@ -134,8 +136,16 @@ export async function POST(request) {
       seat: emptyToNull(data.seat),
       row: emptyToNull(data.row),
       block: emptyToNull(data.block),
+      seatKeyHash: hashSeatKey({
+        block: data.block,
+        row: data.row,
+        seat: data.seat,
+      }),
       ticketCategory: emptyToNull(data.ticketCategory),
       purchaserName: emptyToNull(data.purchaserName),
+      purchaserNameHash: data.purchaserName
+        ? hashPersonName(data.purchaserName)
+        : null,
       purchasePrice: parseOptionalPrice(data.purchasePrice),
       purchaseDate: parseOptionalDate(data.purchaseDate),
       barcodeHash,

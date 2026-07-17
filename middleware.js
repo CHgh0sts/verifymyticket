@@ -98,6 +98,7 @@ export const config = {
     "/api/profile/:path*",
     "/api/auth/:path*",
     "/api/check",
+    "/api/check/:path*",
     "/login",
     "/register",
   ],
